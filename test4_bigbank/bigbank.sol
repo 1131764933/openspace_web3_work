@@ -6,7 +6,7 @@ interface IBank {
     function withdraw(uint256 amount) external;
 }
 
-contract Bank is IBank{
+contract Bank is IBank {
     address public owner;
     mapping(address => uint256) public balances;
     address[3] public topThreeDepositors;
@@ -21,7 +21,7 @@ contract Bank is IBank{
     }
 
     // 存款函数
-    function deposit() public payable  {
+    function deposit() public payable {
         require(msg.value > 0, "Deposit amount must be greater than 0");
 
         balances[msg.sender] += msg.value;
@@ -30,7 +30,9 @@ contract Bank is IBank{
 
     // 提款函数，仅管理员可调用
     function withdraw(uint256 amount) public  {
+        require(msg.sender == owner, "Only owner can withdraw funds");
         require(amount <= address(this).balance, "Insufficient balance");
+
         payable(msg.sender).transfer(amount);
     }
 
@@ -55,10 +57,6 @@ contract Bank is IBank{
 
 contract BigBank is Bank {
 
-    constructor() {
-        owner = msg.sender;
-    }
-
     // 新的修饰符，仅允许大于等于 0.001 ether 的存款
     modifier onlyBigBankDeposit() {
         require(msg.value >= 0.001 ether, "Deposit amount must be at least 0.001 ether");
@@ -72,24 +70,25 @@ contract BigBank is Bank {
     }
 
     // 提款函数，增加权限控制
-    function withdrawFromBigBank(uint256 amount) public onlyBigBankAdmin {
+    function withdrawFromBigBank(uint256 amount) public payable onlyBigBankAdmin {
         require(amount <= address(this).balance, "Insufficient balance");
         payable(msg.sender).transfer(amount);
     }
+
     // 转移所有权函数
     function transferOwnership(address newOwner) public onlyBigBankAdmin {
         require(newOwner != address(0), "New owner address cannot be zero address");
         owner = newOwner;
     }
-
 }
 
 contract Ownable {
-    address public  owner;
+    address public owner;
+
     constructor() {
         owner = msg.sender;
     }
-
+    receive() external payable { }
     // 仅所有者可调用的权限控制
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
