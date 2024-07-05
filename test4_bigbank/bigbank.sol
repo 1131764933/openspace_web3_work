@@ -6,7 +6,7 @@ interface IBank {
     function withdraw(uint256 amount) external;
 }
 
-contract Bank {
+contract Bank is IBank{
     address public owner;
     mapping(address => uint256) public balances;
     address[3] public topThreeDepositors;
@@ -15,25 +15,13 @@ contract Bank {
         owner = msg.sender;
     }
 
-    // 仅允许大于等于 0.001 ether 的存款
-    modifier onlyDeposit() {
-        require(msg.value >= 0.001 ether, "Deposit amount must be at least 0.001 ether");
-        _;
-    }
-
-    // 仅管理员可调用的权限控制
-    modifier onlyAdmin() {
-        require(msg.sender == owner, "Only owner can call this function");
-        _;
-    }
-
     // 接收以太币的函数
     receive() external payable {
         deposit();
     }
 
     // 存款函数
-    function deposit() public payable onlyDeposit {
+    function deposit() public payable  {
         require(msg.value > 0, "Deposit amount must be greater than 0");
 
         balances[msg.sender] += msg.value;
@@ -41,7 +29,7 @@ contract Bank {
     }
 
     // 提款函数，仅管理员可调用
-    function withdraw(uint256 amount) public onlyAdmin {
+    function withdraw(uint256 amount) public  {
         require(amount <= address(this).balance, "Insufficient balance");
         payable(msg.sender).transfer(amount);
     }
@@ -66,6 +54,7 @@ contract Bank {
 }
 
 contract BigBank is Bank {
+
     constructor() {
         owner = msg.sender;
     }
@@ -87,13 +76,16 @@ contract BigBank is Bank {
         require(amount <= address(this).balance, "Insufficient balance");
         payable(msg.sender).transfer(amount);
     }
+    // 转移所有权函数
+    function transferOwnership(address newOwner) public onlyBigBankAdmin {
+        require(newOwner != address(0), "New owner address cannot be zero address");
+        owner = newOwner;
+    }
+
 }
 
 contract Ownable {
-    address public owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
+    address public  owner;
     constructor() {
         owner = msg.sender;
     }
@@ -102,13 +94,6 @@ contract Ownable {
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
-    }
-
-    // 转移所有权函数
-    function transferOwnership(address newOwner) public onlyOwner {
-        require(newOwner != address(0), "New owner address cannot be zero address");
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
     }
 
     // 从 Bank 合约提款函数，仅所有者可调用
