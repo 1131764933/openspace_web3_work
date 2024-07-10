@@ -35,12 +35,12 @@ contract BaseERC20 {
     }
 
     function transfer(address _to, uint256 _value) public returns (bool success) {
-        _transfer(msg.sender, _to, _value, abi.encodePacked());
+        _internalTransfer(msg.sender, _to, _value, abi.encodePacked());
         return true;
     }
 
-    function transfer(address _to, uint256 _value, bytes calldata _data) public returns (bool success) {
-        _transfer(msg.sender, _to, _value, _data);
+    function transferWithCallback(address _to, uint256 _value, bytes calldata _data) public returns (bool success) {
+        _internalTransfer(msg.sender, _to, _value, _data);
         return true;
     }
 
@@ -54,7 +54,7 @@ contract BaseERC20 {
         balances[_to] += _value;
         allowances[_from][msg.sender] -= _value;
         emit Transfer(_from, _to, _value);
-        _callTokensReceived(_from, _to, _value, abi.encodePacked());
+        _executeTokensReceivedCallback(_from, _to, _value, abi.encodePacked());
         return true; 
     }
 
@@ -69,7 +69,7 @@ contract BaseERC20 {
         return allowances[_owner][_spender];
     }
 
-    function _transfer(address _from, address _to, uint256 _value, bytes memory _data) internal {
+    function _internalTransfer(address _from, address _to, uint256 _value, bytes memory _data) internal {
         require(_to != address(0));
         require(balances[_from] >= _value, "ERC20: transfer amount exceeds balance");
         require(balances[_to] + _value >= balances[_to]); // Overflow check
@@ -77,10 +77,10 @@ contract BaseERC20 {
         balances[_from] -= _value;
         balances[_to] += _value;
         emit Transfer(_from, _to, _value);
-        _callTokensReceived(_from, _to, _value, _data);
+        _executeTokensReceivedCallback(_from, _to, _value, _data);
     }
 
-    function _callTokensReceived(address _from, address _to, uint256 _value, bytes memory _data) internal {
+    function _executeTokensReceivedCallback(address _from, address _to, uint256 _value, bytes memory _data) internal {
         if (_to.isContract()) {
             ITokenReceiver(_to).tokensReceived(_from, _value, _data);
         }
