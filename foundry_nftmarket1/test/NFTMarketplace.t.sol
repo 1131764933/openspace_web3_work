@@ -58,6 +58,7 @@ contract NFTMarketplaceTest is Test {
     }
 
     function testListNFTFailureNotOwner() public {
+        vm.prank(notOwner);
         vm.expectRevert("You do not own this NFT");
         marketplace.list(address(nft), 1, 1000 * 10 ** 18);
     }
