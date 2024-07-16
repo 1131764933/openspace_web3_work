@@ -7,3 +7,6 @@
 [submodule "web3-metamask"]
 	path = web3-metamask
 	url = https://github.com/1131764933/openspace_web3_work.git
+[submodule "my-projectcopy"]
+	path = my-projectcopy
+	url = https://github.com/1131764933/openspace_web3_work.git
