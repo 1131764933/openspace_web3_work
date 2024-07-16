@@ -4,3 +4,6 @@
 [submodule "foundry_erc20/lib/forge-std"]
 	path = foundry_erc20/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "web3-metamask"]
+	path = web3-metamask
+	url = https://github.com/1131764933/openspace_web3_work.git
