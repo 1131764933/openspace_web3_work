@@ -1,0 +1,6 @@
+[submodule "test5_TokenBank/lib/forge-std"]
+	path = test5_TokenBank/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "foundry_erc20/lib/forge-std"]
+	path = foundry_erc20/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std

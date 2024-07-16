@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=4.0">
+  <title>Connect MetaMask Wallet</title>
+</head>
+<body>
+  <button id="connectWallet">Connect Wallet</button>
+  <div id="walletInfo">
+    <p>Address: <span id="walletAddress">Not connected</span></p>
+    <p>Balance: <span id="walletBalance">Not connected</span> ETH</p>
+  </div>
+
+  <!-- Load web3modal and ethers.js from CDN -->
+  <script src="https://unpkg.com/web3modal@1.9.5/dist/index.js"></script>
+  <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+  <script>
+    let web3Modal;
+    let provider;
+    let signer;
+
+    async function init() {
+      const providerOptions = {
+        // Here you can define different wallet providers if needed
+      };
+
+      web3Modal = new Web3Modal.default({
+        cacheProvider: false, // optional
+        providerOptions, // required
+      });
+
+      document.getElementById('connectWallet').addEventListener('click', onConnect);
+    }
+
+    async function onConnect() {
+      try {
+        provider = await web3Modal.connect();
+        const web3Provider = new ethers.providers.Web3Provider(provider);
+        signer = web3Provider.getSigner();
+        const address = await signer.getAddress();
+        document.getElementById('walletAddress').textContent = address;
+
+        // Get balance
+        const balance = await web3Provider.getBalance(address);
+        const balanceInEth = ethers.utils.formatEther(balance);
+        document.getElementById('walletBalance').textContent = balanceInEth;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
+
