@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/forge-std/src/Test.sol";
+import "forge-std/Test.sol";
 import "../src/NFTMarketplace.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-contract TestERC20 is ERC20 {
-    constructor() ERC20("Test Token", "TST") {
-        _mint(msg.sender, 1000000 * 10 ** 18);
+contract NFT is ERC721 {
+    constructor() ERC721("TestNFT", "TNFT") {}
+
+    function mint(address to, uint256 tokenId) external {
+        _mint(to, tokenId);
+    }
+}
+
+contract Token is ERC20 {
+    constructor() ERC20("TestToken", "TT") {
+        _mint(msg.sender, 1000000 * 10 ** decimals());
     }
 
     function mint(address to, uint256 amount) external {
@@ -18,137 +26,177 @@ contract TestERC20 is ERC20 {
     }
 }
 
-contract TestERC721 is ERC721 {
-    constructor() ERC721("Test NFT", "TNFT") {}
-
-    function mint(address to, uint256 tokenId) external {
-        _mint(to, tokenId);
-    }
-}
-
 contract NFTMarketplaceTest is Test {
     NFTMarketplace marketplace;
-    TestERC20 erc20;
-    TestERC721 nft;
+    NFT nft;
+    Token token;
+    address user1 = address(0x1);
+    address user2 = address(0x2);
 
-    address alice = address(0x123);
-    address bob = address(0x456);
+    event NFTListed(address indexed nftContract, uint256 indexed tokenId, uint256 price, address indexed seller);
+    event NFTSold(address indexed nftContract, uint256 indexed tokenId, uint256 price, address indexed buyer);
 
     function setUp() public {
-        marketplace = new NFTMarketplace(address(erc20));
-        erc20 = new TestERC20();
-        nft = new TestERC721();
+        token = new Token();
+        marketplace = new NFTMarketplace(address(token));
+        nft = new NFT();
 
-        // Mint some tokens and NFTs
-        erc20.mint(alice, 10000 * 10 ** 18);
-        nft.mint(alice, 1);
+        nft.mint(user1, 1);
+        nft.mint(user1, 2);
 
-        // Approve the marketplace
-        vm.prank(alice);
-        nft.approve(address(marketplace), 1);
+        token.mint(user2, 1000 * 10 ** token.decimals());
     }
 
+    // 测试上架成功
     function testListNFTSuccess() public {
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
-
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        vm.expectEmit(true, true, true, true);
+        emit NFTListed(address(nft), 1, 100 * 10 ** token.decimals(), user1);
+        marketplace.list(address(nft), 1, 100 * 10 ** token.decimals());
         (uint256 price, address seller) = marketplace.listings(address(nft), 1);
-        assertEq(price, 1000 * 10 ** 18);
-        assertEq(seller, alice);
+        assertEq(price, 100 * 10 ** token.decimals());
+        assertEq(seller, user1);
+        vm.stopPrank();
     }
 
-    function testListNFTFailureNotOwner() public {
-        vm.prank(notOwner);
+    //测试上架失败
+
+    // 测试上架失败：上架者不是 NFT 的拥有者
+    function testListNFTFailNotOwner() public {
+        uint256 d=token.decimals();
+        vm.startPrank(user2); // user2 不是 NFT 的拥有者
+        nft.setApprovalForAll(address(marketplace), true);
         vm.expectRevert("You do not own this NFT");
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
+        marketplace.list(address(nft), 1, 100 * 10 **d );
+        vm.stopPrank();
     }
 
-    function testListNFTFailureNotApproved() public {
-        vm.prank(alice);
-        nft.approve(address(0), 1);
-
+    // 测试上架失败：上架者没有批准市场合约
+    function testListNFTFailNotApproved() public {
+        uint256 d=token.decimals();
+        vm.startPrank(user1);
+        // 不设置 Approval
         vm.expectRevert("Marketplace not approved");
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
+        marketplace.list(address(nft), 1, 100 * 10 **d);
+        vm.stopPrank();
     }
 
+    // // // 测试上架失败：尝试上架不存在的 NFT
+    // function testListNFTFailNonexistentToken() public {
+    //     uint256 d=token.decimals();
+    //     vm.startPrank(user1);
+    //     nft.setApprovalForAll(address(marketplace), true);
+    //     vm.expectRevert("ERC721NonexistentToken(3)");
+    //     marketplace.list(address(nft), 3, 100 * 10 **d); // Token ID 3 不存在
+    //     vm.stopPrank();
+    //     vm.startPrank(user1);
+    //     nft.setApprovalForAll(address(marketplace), true);
+    //     vm.expectRevert("ERC721: owner query for nonexistent token");
+    //     marketplace.list(address(nft), 3, 100 * 10 **d); // Token ID 3 不存在
+    //     vm.stopPrank();
+    // }
+
+
+
+    // 测试购买成功
     function testBuyNFTSuccess() public {
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        marketplace.list(address(nft), 1, 100 * 10 ** token.decimals());
+        vm.stopPrank();
 
-        vm.prank(bob);
-        erc20.mint(bob, 1000 * 10 ** 18);
-        erc20.approve(address(marketplace), 1000 * 10 ** 18);
+        vm.startPrank(user2);
+        token.approve(address(marketplace), 100 * 10 ** token.decimals());
+        vm.expectEmit(true, true, true, true);
+        emit NFTSold(address(nft), 1, 100 * 10 ** token.decimals(), user2);
         marketplace.buyNFT(address(nft), 1);
-
-        assertEq(nft.ownerOf(1), bob);
+        assertEq(nft.ownerOf(1), user2);
+        vm.stopPrank();
     }
 
-    function testBuyNFTSelf() public {
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
+    // 测试自己购买自己的NFT
+    function testBuyNFTFailSelfPurchase() public {
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        marketplace.list(address(nft), 1, 100 * 10 ** token.decimals());
+        token.approve(address(marketplace), 100 * 10 ** token.decimals());
+        vm.expectRevert("Cannot buy your own NFT");
+        marketplace.buyNFT(address(nft), 1);
+        vm.stopPrank();
+    }
 
-        vm.prank(alice);
+    // 测试NFT被重复购买
+    function testBuyNFTFailDoublePurchase() public {
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        marketplace.list(address(nft), 1, 100 * 10 ** token.decimals());
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        token.approve(address(marketplace), 100 * 10 ** token.decimals());
+        marketplace.buyNFT(address(nft), 1);
         vm.expectRevert("NFT not listed for sale");
         marketplace.buyNFT(address(nft), 1);
+        vm.stopPrank();
     }
 
-    function testBuyNFTAlreadySold() public {
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
+    // 测试支付Token过多
+    function testBuyNFTFailOverpayment() public {
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        marketplace.list(address(nft), 1, 100 * 10 ** token.decimals());
+        vm.stopPrank();
 
-        vm.prank(bob);
-        erc20.mint(bob, 1000 * 10 ** 18);
-        erc20.approve(address(marketplace), 1000 * 10 ** 18);
+        vm.startPrank(user2);
+        token.approve(address(marketplace), 200 * 10 ** token.decimals());
+        vm.expectEmit(true, true, true, true);
+        emit NFTSold(address(nft), 1, 100 * 10 ** token.decimals(), user2);
         marketplace.buyNFT(address(nft), 1);
-
-        vm.prank(bob);
-        vm.expectRevert("NFT not listed for sale");
-        marketplace.buyNFT(address(nft), 1);
+        assertEq(nft.ownerOf(1), user2);
+        vm.stopPrank();
     }
 
-    function testBuyNFTUnderpay() public {
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
+    // 测试支付Token过少
+    function testBuyNFTFailUnderpayment() public {
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        marketplace.list(address(nft), 1, 100 * 10 ** token.decimals());
+        vm.stopPrank();
 
-        vm.prank(bob);
-        erc20.mint(bob, 999 * 10 ** 18);
-        erc20.approve(address(marketplace), 999 * 10 ** 18);
-
-        vm.expectRevert("Insufficient payment");
+        vm.startPrank(user2);
+        token.approve(address(marketplace), 50 * 10 ** token.decimals());
+        vm.expectRevert("ERC20: transfer amount exceeds allowance");
         marketplace.buyNFT(address(nft), 1);
+        vm.stopPrank();
     }
 
-    function testBuyNFTOverpay() public {
-        vm.prank(alice);
-        marketplace.list(address(nft), 1, 1000 * 10 ** 18);
-
-        vm.prank(bob);
-        erc20.mint(bob, 2000 * 10 ** 18);
-        erc20.approve(address(marketplace), 2000 * 10 ** 18);
-        marketplace.buyNFT(address(nft), 1);
-
-        assertEq(nft.ownerOf(1), bob);
-    }
-
-    function testFuzzListAndBuyNFT(uint256 price, address buyer) public {
-        vm.assume(price > 0.01 * 10 ** 18 && price < 10000 * 10 ** 18);
-        vm.assume(buyer != alice && buyer != address(0));
-
-        vm.prank(alice);
+    // 测试随机价格上架NFT
+    function testFuzzListing(uint256 price) public {
+        vm.assume(price > 0.01 ether && price < 10000 ether);
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
         marketplace.list(address(nft), 1, price);
-
-        vm.prank(buyer);
-        erc20.mint(buyer, price);
-        erc20.approve(address(marketplace), price);
-        marketplace.buyNFT(address(nft), 1);
-
-        assertEq(nft.ownerOf(1), buyer);
+        (uint256 listedPrice, address seller) = marketplace.listings(address(nft), 1);
+        assertEq(listedPrice, price);
+        assertEq(seller, user1);
+        vm.stopPrank();
     }
 
-    function testInvariantTokenBalance() public {
-        // Invariant: NFTMarketplace should never hold any ERC20 tokens
-        uint256 balance = erc20.balanceOf(address(marketplace));
+    // 测试随机Address购买NFT
+    function testFuzzBuying(address buyer) public {
+        uint256 price = 100 * 10 ** token.decimals();
+        vm.assume(buyer != address(0) && buyer != user1 && buyer !=user2);
+        vm.startPrank(user1);
+        nft.approve(address(marketplace), 1);
+        marketplace.list(address(nft), 1, price);
+        vm.stopPrank();
+
+    }
+
+    // 测试不可变性，确保合约中没有持有任何Token
+    function testInvariantTokenBalance() public view{
+        uint256 balance = token.balanceOf(address(marketplace));
         assertEq(balance, 0);
     }
 }
