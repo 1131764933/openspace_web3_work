@@ -1,0 +1,44 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: NFTMarket
+    network: sepolia
+    source:
+      address: "0x23225a72386c4cbcd5cb08c2e36f4fae56b40e99"
+      abi: NFTMarket
+      startBlock: 6344838
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Cancel
+        - EIP712DomainChanged
+        - List
+        - OwnershipTransferred
+        - SetFeeTo
+        - SetWhiteListSigner
+        - Sold
+      abis:
+        - name: NFTMarket
+          file: ./abis/NFTMarket.json
+      eventHandlers:
+        - event: Cancel(bytes32)
+          handler: handleCancel
+        - event: EIP712DomainChanged()
+          handler: handleEIP712DomainChanged
+        - event: List(indexed address,indexed uint256,bytes32,address,address,uint256,uint256)
+          handler: handleList
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: SetFeeTo(address)
+          handler: handleSetFeeTo
+        - event: SetWhiteListSigner(address)
+          handler: handleSetWhiteListSigner
+        - event: Sold(bytes32,address,uint256)
+          handler: handleSold
+      file: ./src/nft-market.ts
