@@ -1,0 +1,16 @@
+{
+  "name": "viem_nft",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",  
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "viem": "^2.17.3" 
+  },
+  "author": "",
+  "license": "ISC"
+}
